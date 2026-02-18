@@ -1,0 +1,76 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  birthDate     DateTime?
+  birthTime     String?
+  birthLocation String?
+  risingSign    String?
+  sunSign       String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  magicTokens   MagicToken[]
+  weeklyReadings WeeklyReading[]
+}
+
+model MagicToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([token])
+  @@index([expiresAt])
+}
+
+model GeneratedContent {
+  id        String   @id @default(cuid())
+  type      String
+  dateKey   String
+  content   Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([type, dateKey])
+  @@index([type])
+  @@index([dateKey])
+}
+
+model WeeklyReading {
+  id        String   @id @default(cuid())
+  userId    String
+  weekKey   String
+  text      String   @db.Text
+  moonPhase String?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, weekKey])
+  @@index([weekKey])
+}
+
+model CronLog {
+  id        String   @id @default(cuid())
+  type      String
+  status    String
+  message   String?
+  createdAt DateTime @default(now())
+
+  @@index([type])
+  @@index([createdAt])
+}
