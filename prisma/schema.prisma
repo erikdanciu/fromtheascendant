@@ -74,3 +74,17 @@ model CronLog {
   @@index([type])
   @@index([createdAt])
 }
+
+// Cache readings by sign combination to reduce API costs
+model SignReadingCache {
+  id          String   @id @default(cuid())
+  weekKey     String
+  sunSign     String
+  risingSign  String?
+  moonPhase   String
+  text        String   @db.Text
+  createdAt   DateTime @default(now())
+
+  @@unique([weekKey, sunSign, risingSign, moonPhase])
+  @@index([weekKey])
+}

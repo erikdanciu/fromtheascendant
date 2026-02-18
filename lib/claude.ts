@@ -56,10 +56,17 @@ export async function generateAstrologyContent(
   context: AstrologyContext
 ): Promise<string> {
   const prompt = buildPrompt(type, context);
+  
+  // Use Haiku for personalized readings (cheaper), Sonnet for public SEO content (higher quality)
+  const model = type === 'weeklyPersonal' 
+    ? 'claude-3-5-haiku-20241022' 
+    : 'claude-sonnet-4-20250514';
+  
+  const maxTokens = type === 'weeklyPersonal' ? 800 : 1500;
 
   const message = await getAnthropic().messages.create({
-    model: 'claude-sonnet-4-20250514',
-    max_tokens: 1500,
+    model,
+    max_tokens: maxTokens,
     messages: [
       {
         role: 'user',

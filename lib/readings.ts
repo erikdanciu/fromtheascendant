@@ -3,6 +3,52 @@ import { generateAstrologyContent } from './claude';
 import { getWeekKey, getMoonPhase, getCurrentTransitTheme } from './astrology';
 import { sendWeeklyReadingEmail } from './email';
 
+// Get or generate a cached reading based on sign combination
+async function getOrCreateSignReading(
+  sunSign: string,
+  risingSign: string | null,
+  moonPhase: string,
+  weekKey: string
+): Promise<string> {
+  // Check if we already have a cached reading for this sign combination
+  const cached = await prisma.signReadingCache.findUnique({
+    where: {
+      weekKey_sunSign_risingSign_moonPhase: {
+        weekKey,
+        sunSign,
+        risingSign: risingSign || '',
+        moonPhase,
+      },
+    },
+  });
+
+  if (cached) {
+    return cached.text;
+  }
+
+  // Generate new reading
+  const transitTheme = getCurrentTransitTheme();
+  const reading = await generateAstrologyContent('weeklyPersonal', {
+    sunSign,
+    risingSign: risingSign || undefined,
+    moonPhase,
+    transitTheme,
+  });
+
+  // Cache it for other users with same sign combination
+  await prisma.signReadingCache.create({
+    data: {
+      weekKey,
+      sunSign,
+      risingSign: risingSign || '',
+      moonPhase,
+      text: reading,
+    },
+  });
+
+  return reading;
+}
+
 export async function generateWeeklyReadingForUser(userId: string): Promise<string> {
   const user = await prisma.user.findUnique({
     where: { id: userId },
@@ -14,9 +60,8 @@ export async function generateWeeklyReadingForUser(userId: string): Promise<stri
 
   const weekKey = getWeekKey();
   const moonPhase = getMoonPhase();
-  const transitTheme = getCurrentTransitTheme();
 
-  // Check if reading already exists
+  // Check if user already has a reading for this week
   const existing = await prisma.weeklyReading.findUnique({
     where: {
       userId_weekKey: {
@@ -30,15 +75,15 @@ export async function generateWeeklyReadingForUser(userId: string): Promise<stri
     return existing.text;
   }
 
-  // Generate reading using Claude
-  const reading = await generateAstrologyContent('weeklyPersonal', {
-    sunSign: user.sunSign || undefined,
-    risingSign: user.risingSign || undefined,
-    moonPhase: moonPhase.name,
-    transitTheme,
-  });
+  // Get or create cached reading based on sign combination
+  const reading = await getOrCreateSignReading(
+    user.sunSign || 'Aries',
+    user.risingSign,
+    moonPhase.name,
+    weekKey
+  );
 
-  // Store in database
+  // Store reference for this user
   await prisma.weeklyReading.create({
     data: {
       userId,
